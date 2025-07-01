@@ -14,8 +14,7 @@
 using namespace std;
 using namespace dpp;
 namespace fs = std::filesystem;
-size_t fileSize = 8;
-size_t part_size = 8 * 1024 * 1024;
+size_t part_size = 10475274;
 string channelId, messageId, createdWebhook, guild_id, category_id, droppedFilePath, filePath;
 using json = nlohmann::json;
 
@@ -301,57 +300,51 @@ int fileDownload(const std::string& url, const std::string& dosya_adi) {
 }
 // file download
 bool check_token(const std::string& token) {
-    CURL* curl;
-    CURLcode res;
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "cURL not started" << std::endl;
+        return false;
+    }
+
     std::string url = "https://discord.com/api/v10/users/@me";
     Response response;
+    CURLcode res;
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    curl = curl_easy_init();
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, ("Authorization: Bot " + token).c_str());
 
-    if (curl) {
-        // Set the URL and headers
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        struct curl_slist* headers = NULL;
-        headers = curl_slist_append(headers, ("Authorization: Bot " + token).c_str());
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);  
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);   
 
-        // Set the callback function to handle the response
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    res = curl_easy_perform(curl);
 
-        // Perform the request
-        res = curl_easy_perform(curl);
+    bool success = false;
 
-        // Check for errors
-        if (res != CURLE_OK) {
-            std::cerr << "cURL Error: " << curl_easy_strerror(res) << std::endl;
-            curl_easy_cleanup(curl);
-            return false;
-        }
-
-        // Check if the status code indicates success (200 OK)
+    if (res != CURLE_OK) {
+        std::cerr << "cURL Hatası: " << curl_easy_strerror(res) << std::endl;
+    }
+    else {
         long http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
         if (http_code == 200) {
-            //std::cout << "Token is valid!" << std::endl;
-            //std::cout << "Response: " << response.data << std::endl;
+            success = true;
         }
         else {
-            std::cout << "Token is invalid. HTTP Code: " << http_code << std::endl;
-            return false;
+            std::cerr << "Geçersiz token. HTTP Kod: " << http_code << std::endl;
         }
-
-        // Clean up
-        curl_easy_cleanup(curl);
-        curl_slist_free_all(headers);
     }
 
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
     curl_global_cleanup();
-    return true;
+
+    return success;
 }
+
 // check discord bot token with curl
 std::string get_file_url(const std::string& channel_id, const std::string& message_id) {
     json configData = parseConfigFile();
@@ -669,7 +662,7 @@ void printProgressBar(int current, int total, int barWidth = 50) {
 // progress bar
 
 // MAIN FUNCTION
-void splitFileandUpload(const std::string& filePath, dpp::cluster& bot, size_t part_size = 8 * 1024 * 1024) {
+void splitFileandUpload(const std::string& filePath, dpp::cluster& bot) {
     std::string fileName = fs::path(filePath).filename().string();
     std::string links_txt = filePath + "_links.txt";
     std::string tempDir = "C:\\Users\\Public\\Documents\\discordStorage\\temp\\";
