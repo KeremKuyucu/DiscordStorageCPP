@@ -29,7 +29,7 @@ void download(const string& url, const string& filename, const bool& forceDownlo
 
 bool checkVersions() {
     if (!versionControl)
-        download("https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/latestversion.txt", "latestversion.txt", true, 0);
+        download("https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/latestversion.txt", "latestversion.txt", true, 0);
 
     ifstream file1("C:\\Users\\Public\\Documents\\discordStorage\\latestversion.txt");
     getline(file1, remoteVersion);
@@ -44,21 +44,20 @@ bool checkVersions() {
 }
 
 vector<FileData> files = {
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/dpp.dll",                "dpp.dll", 0, 3207680},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/libcrypto-1_1-x64.dll",  "libcrypto-1_1-x64.dll", 0, 3473408},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/libcurl-x64.dll",        "libcurl-x64.dll", 0, 3155048},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/libsodium.dll",          "libsodium.dll", 0, 330752},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/libssl-1_1-x64.dll",     "libssl-1_1-x64.dll", 0, 686080},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/opus.dll",               "opus.dll", 0, 395776},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/zlib1.dll",              "zlib1.dll", 0, 87040},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/DiscordStoragemain.exe", "discordStoragemain.exe", checkVersions(), 0},
-    {"https://github.com/KeremKuyucu/DiscordStorage/raw/refs/heads/main/AppFiles/latestversion.txt",      "localVersion.txt", checkVersions(), 0}
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/dpp.dll",                "dpp.dll", 0, 3207680},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/libcrypto-1_1-x64.dll",  "libcrypto-1_1-x64.dll", 0, 3473408},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/libcurl-x64.dll",        "libcurl-x64.dll", 0, 3155048},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/libsodium.dll",          "libsodium.dll", 0, 330752},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/libssl-1_1-x64.dll",     "libssl-1_1-x64.dll", 0, 686080},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/opus.dll",               "opus.dll", 0, 395776},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/zlib1.dll",              "zlib1.dll", 0, 87040},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/DiscordStoragemain.exe", "discordStoragemain.exe", checkVersions(), 0},
+    {"https://github.com/KeremKuyucu/DiscordStorageCPP/raw/refs/heads/main/AppFiles/latestversion.txt",      "localVersion.txt", checkVersions(), 0}
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "Turkish"); // You can change to "en_US.UTF-8" if needed
     current_path("C:\\Users\\Public\\Documents\\discordStorage");
-    path applicationPath = "discordStorage.exe";
 
     cerr << "\033[1;31mVerifying files and downloading missing ones...\033[0m" << endl;
 
@@ -99,13 +98,23 @@ int main() {
         cout << "\033[1;32mconfig.json file exists.\033[0m" << endl;
     }
 
-    int result = system("discordStoragemain.exe");
-    if (result != 0) {
-        cout << "\033[1;33mIf the application does not start,\n"
-            << "\033[1;34mGo to C:\\Users\\Public\\Documents\\discordStorage\033[1;33m and try running "
-            << "discordStorage.exe manually.\033[0m\n";
+    string command_to_execute = "discordStoragemain.exe";
+
+    for (int i = 1; i < argc; ++i) {
+        command_to_execute += " \""; 
+        command_to_execute += argv[i];
+        command_to_execute += "\"";
     }
-    string temp;
-    cin >> temp;
+
+    int result = system(command_to_execute.c_str());
+
+    if (result != 0) {
+        cout << "\033[1;33mIf the application doesn't start,\n"
+            << "\033[1;34mGo to C:\\Users\\\Public\Documents\\discordStorage\033[1;33m and "
+            << "try running discordStoragemain.exe manually.\033[0m\n";    
+        cout << "The process is complete. Press a key to exit." << endl;
+        string temp;
+        cin >> temp;
+    }
     return 0;
 }

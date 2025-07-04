@@ -643,7 +643,41 @@ void chooseFile(dpp::cluster& bot, std::string& filePath) {
     }
 }
 // selects a file, makes file_path the name of the selected file
+void listCloudFiles(dpp::cluster& bot) {
+    std::vector<dpp::snowflake> cloudFiles;
+    std::promise<void> promise;
+    std::future<void> future = promise.get_future();
 
+    // Dosya listesini asenkron olarak al
+    std::thread getFilesThread([&bot, &cloudFiles, &promise]() {
+        get_cloud_files(bot, cloudFiles, promise);
+        });
+
+    // Dosyaların alınmasını bekle
+    std::cout << "\033[1;33mBuluttaki dosyalar aliniyor, lutfen bekleyin...\033[0m" << std::endl;
+    future.get();
+
+    if (cloudFiles.empty()) {
+        std::cout << "\033[1;31mBulutta gosterilecek dosya bulunamadi.\033[0m" << std::endl;
+        return;
+    }
+
+    std::cout << "\033[1;32m--- Bulutta Kayitli Dosyalar ---\033[0m" << std::endl;
+    for (size_t i = 0; i < cloudFiles.size(); ++i) {
+        try {
+            string obj = get_messages(bot, cloudFiles[i], 1);
+            json json_obj = json::parse(obj);
+            // Dosya adını alıp yazdır
+            std::cout << "- " << json_obj["fileName"].get<std::string>() << std::endl;
+        }
+        catch (const json::parse_error& e) {
+            // JSON formatında olmayan veya hatalı bir kayıt varsa atla
+            std::cerr << "\033[1;31mBuluttaki bir kayit hatali, atlandi...\033[0m" << std::endl;
+            continue;
+        }
+    }
+    std::cout << "\033[1;32m-------------------------------\033[0m" << std::endl;
+}
 
 //  OTHER
 void printProgressBar(int current, int total, int barWidth = 50) {
@@ -868,15 +902,24 @@ void mergeFiles(dpp::cluster& bot, const std::string& linksFileName) {
 }
 // downloads and merges selected files and then deletes temporary files
 
-int main() {
+void show_cli_usage() {
+    std::cerr << "\033[1;33mCommand Line Usage:\033[0m" << std::endl;
+    std::cerr << " " << "DiscordStorage.exe" << " backup <file_path>" << std::endl;
+    std::cerr << " " << "DiscordStorage.exe" << " download <source_file_path>" << std::endl;
+    std::cerr << " " << "DiscordStorage.exe" << " upload-error-file <webhook_url> <error_file_path>" << std::endl;
+    std::cerr << "\n\033[1;33mExamples:\033[0m" << std::endl;
+    std::cerr << " " << "DiscordStorage.exe" << " backup \"C:\\Users\\\Kerem\\\Desktop\\\project.zip\"" << std::endl;
+    std::cerr << " " << "DiscordStorage.exe" << " download \"backup_links.txt\"" << std::endl;
+}
+
+int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "Turkish");
-    string input = "";
-    std::vector<dpp::snowflake> cloudFiles;
     json configData = parseConfigFile();
     if (!check_token(configData["BOT_TOKEN"].get<std::string>())) {
-        std::cerr << "Failed to validate the token!" << std::endl;
+        std::cerr << "Token not verified!" << std::endl;
         return 1;
     }
+
     dpp::cluster bot(configData["BOT_TOKEN"].get<std::string>(), dpp::i_default_intents | dpp::i_message_content);
     guild_id = configData["guild_id"];
     category_id = configData["category_id"];
@@ -886,80 +929,132 @@ int main() {
             dpp::slashcommand ping("ping", "pong!", bot.me.id);
             bot.global_bulk_command_create({ ping });
         }
+        bot.set_presence(dpp::presence(dpp::ps_online, dpp::at_game, "Github: KeremKuyucu/DiscordStorageCPP"));
+        });
 
-        bot.set_presence(dpp::presence(dpp::ps_online, dpp::at_game, "Github: Keremlolgg/DiscordStorage"));
-    });
     bot.on_slashcommand([](const dpp::slashcommand_t& event) {
         if (event.command.get_command_name() == "ping") {
             event.reply("pong!");
-            std::cout << "Pong!" << endl;
+            std::cout << "Pong!" << std::endl;
         }
-    });
+        });
+
     std::thread bot_thread([&bot]() {
         bot.start(dpp::st_wait);
-    });
+        });
 
-    while (true) {
-        cout << "\033[1;31mProgram owner is Kerem Kuyucu.\033[1;33m Github: Keremlolgg/DiscordStorage\n";
-        cout << "\033[1;34m-----------------------------------------------------------------------" << endl;
-        cout << "\033[1;33mPlease enter 'Backup', 'Download' or 'upload-error-file':" << endl;
-        cout << "1. Backup" << endl;
-        cout << "2. Download" << endl;
-        cout << "3. upload-error-file" << endl;
-        cin >> input;
-        cin.ignore();
+    if (argc > 1) {
+        std::string command = argv[1];
 
-        if (input != "1" && input != "2" && input != "3") {
-            cout << "\033[1;31mGeçersiz seçim. Please enter 'Backup', 'Download' or 'upload-error-file':\033[0m" << endl;
-            continue; // Return to the beginning of the cycle in an invalid election
+        if (command == "list") {
+            listCloudFiles(bot);
         }
-
-        if (input == "1") {
-            // Upload
-            cout << "\033[1;34mPlease encrypt sensitive data before uploading for your security.\033[0m" << endl;
-            cout << "\033[1;33mPlease select the file you want to upload.\033[0m" << endl;
-            filePath = openDragDropWindow();
-            cout << filePath << endl;
-            if (!filePath.empty()) {
-                splitFileandUpload(filePath, bot);
+        else if (command == "backup") {
+            if (argc < 3) {
+                std::cerr << "\033[1;31mError: No file path specified for the ‘backup’ command.\033[0m" << std::endl;
+                show_cli_usage();
+                return 1;
             }
+            filePath = argv[2];
+            std::cout << "Yedekleniyor: " << filePath << std::endl;
+            splitFileandUpload(filePath, bot);
         }
-        else if (input == "2") {
-            // Download
-            cout << "\033[1;33mSelect file source:\n filename_link.txt Or Cloud Save\nYour choice: \033[0m";
-            string sourceInput;
-            getline(cin, sourceInput);
-
-            if (sourceInput == "1") {
-                chooseFile(bot, filePath); // Select from filename_link.txt
+        else if (command == "download") {
+            if (argc < 3) {
+                std::cerr << "\033[1;31mError: The source file path for the ‘download’ command was not specified.\033[0m" << std::endl;
+                show_cli_usage();
+                return 1;
             }
-            else if (sourceInput == "2") {
-                filePath = openDragDropWindow(); // Select local file
-            }
-            else {
-                cout << "\033[1;31mInvalid choice.\033[0m" << endl;
-            }
-            if (!filePath.empty()) {
-                mergeFiles(bot, filePath);
-                cout << "\033[1;32mFile downloaded successfully!\033[0m" << endl;
-            }
-            else {
-                cout << "\033[1;31mFile path is empty. Operation cancelled.\033[0m" << endl;
-            }
+            filePath = argv[2];
+            std::cout << "Downloading " << filePath << " using the links in the file." << std::endl;
+            mergeFiles(bot, filePath);
+            std::cout << "\033[1;32mFile successfully downloaded!\033[0m" << std::endl;
         }
-        else if (input == "3") {
-            // Error file upload
-            string hataliwebhook;
-            cout << "Please enter a webhook link to upload the faulty file: (Please create an error file room and create a webhook link from there.)" << endl;
-            getline(cin, hataliwebhook);
-            cout << "Please select the incorrect file." << endl;
-            cout << "\033[1;33mPlease wait one second.\033[0m" << endl;
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            filePath = openDragDropWindow();
-            cout << filePath << endl;
+        else if (command == "upload-error-file") {
+            if (argc < 4) {
+                std::cerr << "\033[1;31mError: No webhook URL and file path specified for the ‘upload-error-file’ command.\033[0m" << std::endl;
+                show_cli_usage();
+                return 1;
+            }
+            std::string hataliwebhook = argv[2];
+            filePath = argv[3];
+            std::cout << "Incorrect file uploading: " << filePath << std::endl;
             fileUpload(hataliwebhook, filePath, 1, filePath + " ", 0, "postlog.txt");
         }
+        else {
+            std::cerr << "\033[1;31mInvalid command: " << command << "\033[0m" << std::endl;
+            show_cli_usage();
+            return 1;
+        }
     }
+    else {
+        std::string input = "";
+        while (true) {
+            cout << "\033[1;31mProgram owner is Kerem Kuyucu.\033[1;33m Github: KeremKuyucu/DiscordStorage\n";
+            cout << "\033[1;34m-----------------------------------------------------------------------" << endl;
+            cout << "\033[1;33mPlease enter 'Backup', 'Download' or 'upload-error-file':" << endl;
+            cout << "1. Backup" << endl;
+            cout << "2. Download" << endl;
+            cout << "3. upload-error-file" << endl;
+            cout << "4. CLI help" << endl;
+            cin >> input;
+            cin.ignore();
+
+            if (input == "1") {
+                // Upload
+                cout << "\033[1;34mPlease encrypt sensitive data before uploading for your security.\033[0m" << endl;
+                cout << "\033[1;33mPlease select the file you want to upload.\033[0m" << endl;
+                filePath = openDragDropWindow();
+                cout << filePath << endl;
+                if (!filePath.empty()) {
+                    splitFileandUpload(filePath, bot);
+                }
+            }
+            else if (input == "2") {
+                // Download
+                cout << "\033[1;33mSelect file source:\n1: Cloud Save\n2: Local Save\nYour choice: \033[0m";
+                string sourceInput;
+                getline(cin, sourceInput);
+
+                if (sourceInput == "1") {
+                    chooseFile(bot, filePath); 
+                }
+                else if (sourceInput == "2") {
+                    filePath = openDragDropWindow();
+                }
+                else {
+                    cout << "\033[1;31mInvalid choice.\033[0m" << endl;
+                }
+                if (!filePath.empty()) {
+                    mergeFiles(bot, filePath);
+                    cout << "\033[1;32mFile downloaded successfully!\033[0m" << endl;
+                }
+                else {
+                    cout << "\033[1;31mFile path is empty. Operation cancelled.\033[0m" << endl;
+                }
+            }
+            else if (input == "3") {
+                // Error file upload
+                string hataliwebhook;
+                cout << "Please enter a webhook link to upload the faulty file: (Please create an error file room and create a webhook link from there.)" << endl;
+                getline(cin, hataliwebhook);
+                cout << "Please select the incorrect file." << endl;
+                cout << "\033[1;33mPlease wait one second.\033[0m" << endl;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                filePath = openDragDropWindow();
+                cout << filePath << endl;
+                fileUpload(hataliwebhook, filePath, 1, filePath + " ", 0, "postlog.txt");
+            }
+            else if (input == "4") {
+                show_cli_usage();
+            }
+            else {
+                cout << "\033[1;31mInvalid election.\033[0m" << endl;
+                continue; 
+            }
+        }
+    }
+
     bot_thread.join();
     return 0;
 }
