@@ -992,7 +992,7 @@ int main(int argc, char* argv[]) {
         while (true) {
             cout << "\033[1;31mProgram owner is Kerem Kuyucu.\033[1;33m Github: KeremKuyucu/DiscordStorage\n";
             cout << "\033[1;34m-----------------------------------------------------------------------" << endl;
-            cout << "\033[1;33mPlease enter 'Backup', 'Download' or 'upload-error-file':" << endl;
+            cout << "\033[1;33mPlease enter number:" << endl;
             cout << "1. Backup" << endl;
             cout << "2. Download" << endl;
             cout << "3. upload-error-file" << endl;
